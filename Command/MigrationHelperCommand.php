@@ -17,12 +17,12 @@ abstract class MigrationHelperCommand extends ContainerAwareCommand
         return null;
     }
 
-    protected function getStmt()
+    protected function getStmt($sql, array $params = null)
     {
         $doctrine = $this->getContainer()->get('doctrine');
         $conn = $doctrine->getConnection();
-        $stmt = $conn->prepare($this->getSql());
-        if ($params = $this->getSqlParams()) {
+        $stmt = $conn->prepare($sql);
+        if (!empty($params)) {
             $k = 0;
             foreach ($params as $parameter) {
                 $stmt->bindValue(++$k, $parameter);

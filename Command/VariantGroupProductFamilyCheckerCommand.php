@@ -19,7 +19,7 @@ class VariantGroupProductFamilyCheckerCommand extends MigrationHelperCommand
 
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        $stmt = $this->getStmt();
+        $stmt = $this->getStmt($this->getSql());
         $data = [];
         while ($row = $stmt->fetch()) {
             $products = $this->formatList($row['product_gencodes']);

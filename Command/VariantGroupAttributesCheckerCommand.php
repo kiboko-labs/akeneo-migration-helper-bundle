@@ -5,6 +5,7 @@ namespace Kiboko\AkeneoMigrationHelperBundle\Command;
 
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
@@ -21,6 +22,7 @@ class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
             ->setDescription('Check the structure of the variations catalog in order to be able to migrate to Akeneo 2.0')
             ->addArgument('family_code', InputArgument::OPTIONAL, '',self::ALL)
             ->addArgument('axis_attribute_code', InputArgument::OPTIONAL, '',self::ALL)
+            ->addOption('fix', null, InputOption::VALUE_NONE, 'Fix attributes')
         ;
     }
 
@@ -34,7 +36,7 @@ class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
             throw new \Exception("You have to specify a family code AND an axis code, or none at all.");
         }
 
-        $stmt = $this->getStmt();
+        $stmt = $this->getStmt($this->getSql(), $this->getSqlParams());
 
         $data = [];
         while ($row = $stmt->fetch()) {
@@ -56,7 +58,7 @@ class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
             $found = false;
             foreach ($data[$row['family_code']][$row['axis_code']] as &$item) {
                 if ($item['keys'] == $keys) {
-                    $item['group_codes'] .= ','.$row['group_codes'];
+                    $item['group_codes'] .= ',' . $row['group_codes'];
                     $found = true;
                 }
             }
@@ -72,6 +74,10 @@ class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
             $this->displayGeneralSummary($output, $data);
         } else {
             $this->displayPairSummary($output, $data);
+        }
+
+        if ($input->getOption('fix')) {
+            $this->fixAttributes($data);
         }
     }
 
@@ -109,6 +115,27 @@ class VariantGroupAttributesCheckerCommand extends MigrationHelperCommand
         }
 
         return null;
+    }
+
+    protected function fixAttributes($data)
+    {
+        $sql = "update pim_catalog_product_template t
+join pim_catalog_group g on g.product_template_id = t.id and g.code = ?
+set t.valuesData = ''";
+
+        $groups = [];
+        foreach ($data as $d1) {
+            foreach ($d1 as $d2) {
+                foreach ($d2 as $d3) {
+                    $groups = array_merge($groups, explode(',', $d3['group_codes']));
+                }
+            }
+        }
+
+        $groups = array_unique($groups);
+        foreach ($groups as $group) {
+            $this->getStmt($sql, [$group]);
+        }
     }
 
     private function displayGeneralSummary(OutputInterface $output, array $data)
